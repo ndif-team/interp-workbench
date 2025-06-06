@@ -40,28 +40,35 @@ async def execute_selected(execute_request: ExecuteSelectedRequest, request: Req
     
     idxs = [token.idx for token in execute_request.tokens]
     model = state.get_model(execute_request.model)
-    tok = model.tokenizer
+
     prompt = execute_request.completion.prompt
 
-    with model.trace(prompt, remote=state.remote):
+    with model.wrapped_trace(prompt):
         logits = model.lm_head.output
 
         logits = logits[0,idxs,:].softmax(dim=-1)
-        values_indices = t.topk(logits, k=3, dim=-1)
+        values_indices = t.sort(logits, dim=-1, descending=True)
 
-        values = values_indices[0].tolist().save()
-        indices = values_indices[1].tolist().save()
+        values = values_indices[0].save()
+        indices = values_indices[1].save()
 
-    all_str_idxs = [
-        tok.batch_decode(idx) for idx in indices
-    ]
 
-    results = {
-        token_index : {
-            "str_idxs": all_str_idxs[idx],
-            "values": values[idx],
-            "indices": indices[idx]
-        } for idx, token_index in enumerate(idxs)
-    }
+    results = {}
+
+    for idx, token_index in enumerate(idxs):
+        idx_values = values[idx]
+        idx_indices = indices[idx]
+
+        # Round values to 2 decimal places
+        idx_values = t.round(idx_values * 100) / 100
+        nonzero = idx_values > 0
+
+        nonzero_values = idx_values[nonzero].tolist()
+        nonzero_indices = idx_indices[nonzero].tolist()
+
+        results[token_index] = {
+            "ids": nonzero_indices,
+            "values": nonzero_values
+        }
 
     return results

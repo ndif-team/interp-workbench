@@ -15,6 +15,9 @@ class ModelsConfig(BaseModel):
     """Root configuration containing all models."""
 
     remote: bool
+    next_public_base_url: str
+    callback_url: str
+    
     models: Dict[str, ModelConfig]
 
     def get_model_list(self) -> List[str]:

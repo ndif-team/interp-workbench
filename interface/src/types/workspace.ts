@@ -26,15 +26,14 @@ export type ChartType = "heatmap" | "lineGraph";
 export interface ChartMode {
     name: string;
     description: string;
-    icon: string;
+    icon: React.ElementType;
     component: React.ComponentType<{ index: number }>;
 }
 
 // Types for top-k predictions
 interface TokenPrediction {
-    str_idxs: string[];
+    ids: number[];
     values: number[];
-    indices: number[];
 }
 
 export interface TokenPredictions {

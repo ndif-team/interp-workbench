@@ -17,6 +17,7 @@ interface LensWorkbenchState {
 
     // Layout management
     setLayout: (layout: Layout) => void;
+    clearGridPositions: () => void;
 
     // Grid position management
     setChartMode: (position: number, chartModeIndex: number) => void;
@@ -25,8 +26,21 @@ interface LensWorkbenchState {
     // Chart data management
     setChartData: (position: number, chartData: ChartData | null) => void;
     getChartData: (position: number) => ChartData | null;
-    getAllChartData: () => Array<{ position: number; data: ChartData }>;
+    setGridPositions: (gridPositions: GridPosition[]) => void;
 }
+
+const countToLayout = (count: number): Layout => {
+    switch (count) {
+        case 1:
+            return "1x1";
+        case 2:
+            return "2x1";
+        case 4:
+            return "2x2";
+        default:
+            throw new Error(`Invalid count: ${count}`);
+    }
+};
 
 const getInitialGridPositions = (layout: Layout): GridPosition[] => {
     let count: number;
@@ -52,6 +66,10 @@ const getInitialGridPositions = (layout: Layout): GridPosition[] => {
 export const useCharts = create<LensWorkbenchState>((set, get) => ({
     layout: "1x1",
     gridPositions: getInitialGridPositions("1x1"),
+
+    clearGridPositions: () => {
+        set({ gridPositions: getInitialGridPositions("1x1") });
+    },
 
     setLayout: (layout) => {
         set((state) => {
@@ -130,16 +148,7 @@ export const useCharts = create<LensWorkbenchState>((set, get) => ({
         return gridPositions[position]?.chartData || null;
     },
 
-    getAllChartData: () => {
-        const { gridPositions } = get();
-        const result: Array<{ position: number; data: ChartData }> = [];
-
-        gridPositions.forEach((gridPosition, position) => {
-            if (gridPosition.chartData !== null) {
-                result.push({ position, data: gridPosition.chartData });
-            }
-        });
-
-        return result;
+    setGridPositions: (gridPositions) => {
+        set({ gridPositions, layout: countToLayout(gridPositions.length) });
     },
 }));

@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Heatmap } from "@/components/charts/base/Heatmap";
 import { useCharts } from "@/stores/useCharts";
 import { useLensCompletions } from "@/stores/useLensCompletions";
 import { ChartCard } from "../ChartCard";
+import { useMemo } from "react";
 
 import {
     DropdownMenuRadioGroup,
@@ -11,21 +12,34 @@ import {
     DropdownMenuItem,
     DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { useAnnotations } from "@/stores/useAnnotations";
+import { useStatusUpdates } from "@/hooks/useStatusUpdates";
 
 export function LensHeatmap({ index }: { index: number }) {
     const [isLoading, setIsLoading] = useState(false);
-
-    const { activeCompletions } = useLensCompletions();
-    const { gridPositions, removeChart, setChartData } = useCharts();
-
     const [completionIndex, setCompletionIndex] = useState<string>("1");
 
+    const { annotations, setAnnotations } = useAnnotations();
+    const { gridPositions, removeChart, setChartData } = useCharts();
+
     const gridPosition = gridPositions[index];
+
+    const handleRemoveChart = () => {
+        setAnnotations(
+            annotations.filter((a) => !(a.type === "heatmap" && a.data.chartIndex === index))
+        );
+        removeChart(index);
+    };
 
     const handleRunChart = async () => {
         setIsLoading(true);
 
+        const { startStatusUpdates, stopStatusUpdates } = useStatusUpdates.getState();
+
+        startStatusUpdates();
+
         try {
+            const { activeCompletions } = useLensCompletions.getState();
             const response = await fetch("/api/lens-grid", {
                 method: "POST",
                 headers: {
@@ -46,46 +60,79 @@ export function LensHeatmap({ index }: { index: number }) {
             setChartData(index, null);
         } finally {
             setIsLoading(false);
+            stopStatusUpdates();
         }
     };
 
+    const handleEmphasizeCompletion = (index: number) => {
+        console.log("Emphasizing completion", index);
+        const { emphasizedCompletions, setEmphasizedCompletions } = useLensCompletions.getState();
+        if (index === -1) {
+            setEmphasizedCompletions([]);
+        } else {
+            setEmphasizedCompletions([...emphasizedCompletions, index]);
+        }
+    };
+
+    useEffect(() => {
+        return () => {
+            handleEmphasizeCompletion(-1);
+        };
+    }, [completionIndex]);
+
+    const activeCompletionsLength = useLensCompletions((state) => state.activeCompletions.length);
+    const memoizedCompletionItems = useMemo(() => {
+        return activeCompletionsLength >= 1 ? (
+            Array.from({ length: activeCompletionsLength }, (_, i) => (
+                <DropdownMenuRadioItem key={i} value={`${i + 1}`}>
+                    {i + 1}
+                </DropdownMenuRadioItem>
+            ))
+        ) : (
+            <DropdownMenuItem disabled>No completions</DropdownMenuItem>
+        );
+    }, [activeCompletionsLength]);
+
     return (
-        <ChartCard
-            handleRunChart={handleRunChart}
-            handleRemoveChart={() => removeChart(index)}
-            isLoading={isLoading}
-            chartTitle={
-                <div>
-                    <div className="text-md font-bold">Lens Heatmap</div>
-                    <span className="text-xs text-muted-foreground">Completion {completionIndex}</span>
-                </div>
-            }
-            chart={
-                gridPosition.chartData ? (
-                    <Heatmap {...gridPosition.chartData.data} />
-                ) : (
-                    <div className="flex items-center justify-center h-full">
-                        <p className="text-muted-foreground">No data</p>
+        <div
+            onMouseEnter={() => handleEmphasizeCompletion(parseInt(completionIndex) - 1)}
+            onMouseLeave={() => handleEmphasizeCompletion(-1)}
+            className="h-full w-full"
+        >
+            <ChartCard
+                handleRunChart={handleRunChart}
+                handleRemoveChart={handleRemoveChart}
+                isLoading={isLoading}
+                chartTitle={
+                    <div>
+                        <div className="text-md font-bold">Lens Heatmap</div>
+                        <span className="text-xs text-muted-foreground">
+                            Completion {completionIndex}
+                        </span>
                     </div>
-                )
-            }
-            configContent={
-                <>
-                    <DropdownMenuLabel>Set Completion</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuRadioGroup value={completionIndex} onValueChange={setCompletionIndex}>
-                        {activeCompletions.length >= 1 ? (
-                            activeCompletions.map((_, i) => (
-                                <DropdownMenuRadioItem key={i} value={`${i + 1}`}>
-                                    {i + 1}
-                                </DropdownMenuRadioItem>
-                            ))
-                        ) : (
-                            <DropdownMenuItem disabled>No completions</DropdownMenuItem>
-                        )}
-                    </DropdownMenuRadioGroup>
-                </>
-            }
-        />
+                }
+                chart={
+                    gridPosition.chartData ? (
+                        <Heatmap chartIndex={index} {...gridPosition.chartData.data} />
+                    ) : (
+                        <div className="flex items-center justify-center h-full">
+                            <p className="text-muted-foreground">No data</p>
+                        </div>
+                    )
+                }
+                configContent={
+                    <>
+                        <DropdownMenuLabel>Set Completion</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuRadioGroup
+                            value={completionIndex}
+                            onValueChange={setCompletionIndex}
+                        >
+                            {memoizedCompletionItems}
+                        </DropdownMenuRadioGroup>
+                    </>
+                }
+            />
+        </div>
     );
 }

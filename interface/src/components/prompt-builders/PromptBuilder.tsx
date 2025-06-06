@@ -1,13 +1,13 @@
 "use client";
 
 import { Plus } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { ModelSelector } from "@/components/ModelSelector";
 import { CompletionCard } from "@/components/prompt-builders/CompletionCard";
 import { useLensCompletions } from "@/stores/useLensCompletions";
 import { useSelectedModel } from "@/hooks/useSelectedModel";
 import { useTutorialManager } from "@/hooks/useTutorialManager";
 import { useModels } from "@/hooks/useModels";
+import { TooltipButton } from "@/components/ui/tooltip-button";
 
 export function PromptBuilder() {
     const { handleNewCompletion, activeCompletions } = useLensCompletions();
@@ -17,11 +17,11 @@ export function PromptBuilder() {
 
     function createNewCompletion() {
         handleNewCompletion(modelName);
-        handleClick('#new-completion');
+        handleClick("#new-completion");
     }
 
     return (
-        <div>
+        <div className="h-full flex flex-col">
             <div className="p-4 border-b">
                 <div className="flex items-center justify-between">
                     <h2 className="text-sm font-medium">Model</h2>
@@ -29,22 +29,22 @@ export function PromptBuilder() {
                     <div className="flex items-center gap-2">
                         <ModelSelector />
 
-                        <Button
-                            size="sm"
-                            className="w-100"
+                        <TooltipButton
+                            size="icon"
+                            // className="w-8 h-8"
                             onClick={createNewCompletion}
                             id="new-completion"
-                            disabled={isLoading}
+                            disabled={isLoading || activeCompletions.length >= 5}
+                            tooltip="Create a new completion"
                         >
-                            New
                             <Plus size={16} />
-                        </Button>
+                        </TooltipButton>
                     </div>
                 </div>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
-                {activeCompletions.map((compl) => (
-                    <CompletionCard key={compl.id} compl={compl} />
+            <div className="flex-1 p-4 overflow-y-auto space-y-4">
+                {activeCompletions.map((compl, index) => (
+                    <CompletionCard key={compl.id} compl={compl} index={index} />
                 ))}
                 {activeCompletions.length === 0 && (
                     <p className="text-center py-4">No active completions.</p>
